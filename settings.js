@@ -54,8 +54,8 @@ function collectSettings() {
     return {
         // 共通
         //allOrPart: q('allOrPart').checked,
-        //selectedIds: Array.from(selectedIndividuals),
-        //noneCards: noneCards.slice(),
+        selectedIds: Array.from(selectedIndividuals),
+        noneCards: noneCards.slice(),
 
         // 札流し
         fudaNagashi: {
@@ -299,3 +299,4 @@ function dumpArray() {
 }
 
 renderGrid();
+
