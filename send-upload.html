@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="ja">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>報告・情報共有・連絡フォーム</title>
+    <style>
+        body {
+            font-family: system-ui, sans-serif;
+            margin: 24px;
+            line-height: 1.6;
+        }
+
+        form {
+            max-width: 720px;
+        }
+
+        fieldset {
+            border: 1px solid #ddd;
+            padding: 16px;
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            font-weight: 600;
+            margin: 10px 0 6px;
+        }
+
+        input[type="text"], textarea {
+            width: 100%;
+            box-sizing: border-box;
+            padding: 8px;
+            font-size: 16px;
+            border: 1px solid #bbb;
+            border-radius: 6px;
+        }
+
+        input[type="file"] {
+            display: block;
+            margin-top: 6px;
+        }
+
+        button {
+            padding: 10px 16px;
+            font-size: 16px;
+            border-radius: 6px;
+        }
+
+        #log {
+            white-space: pre-wrap;
+            background: #fafafa;
+            border: 1px solid #eee;
+            padding: 12px;
+            margin-top: 16px;
+        }
+
+        .ok {
+            color: #137333;
+        }
+
+        .ng {
+            color: #b80606;
+        }
+    </style>
+</head>
+<body>
+    <h1>報告・情報共有・連絡フォーム</h1>
+
+    <form id="f">
+        <fieldset>
+            <legend>テキスト入力(すべて入力必須)</legend>
+            <label for="t2">ユーザー名</label>
+            <input id="t2" name="t2" type="text" placeholder="ニックネーム・名前など(仮でOK)" required />
+            <label for="t3">要件</label>
+            <input id="t3" name="t3" type="text" placeholder="バグ報告/意見/質問など" required />
+            <label for="t1">内容</label>
+            <textarea id="t1" name="t1" rows="5" placeholder="内容の詳細を記載" required></textarea>
+        </fieldset>
+
+        <fieldset>
+            <legend>
+                ファイル(サイズ制限あり/1回の送信に30秒以上かかる場合エラー?)
+                <br>ファイル送信ができない場合は、ファイル共有のURLでお送りいただけると幸いです
+            </legend>
+            <label for="img">画像（accept=image/*）</label>
+            <input id="img" name="img" type="file" accept="image/*" />
+
+            <label for="vid">動画（accept=video/*）</label>
+            <input id="vid" name="vid" type="file" accept="video/*" />
+        </fieldset>
+
+        <button type="submit">送信(すぐ送信)</button>
+    </form>
+
+    <div id="log" aria-live="polite"></div>
+
+    <script>
+
+        const TOKEN = '';
+        const GAS_URL = 'https://script.google.com/macros/s/AKfycbxbNpuo9t87jruH2lHbeS1ML3hOy9MFloCpbnyOpU9lnNBPoCL3TmDRpUxABFeo9Njcbw/exec';
+        //const GAS_ID = '..................................AKfycbxbNpuo9t87jruH2lHbeS1ML3hOy9MFloCpbnyOpU9lnNBPoCL3TmDRpUxABFeo9Njcbw';
+
+        function log(msg, ok) {
+            var el = document.getElementById('log');
+            var p = document.createElement('div');
+            p.className = ok === true ? 'ok' : ok === false ? 'ng' : '';
+            p.textContent = msg;
+            el.appendChild(p);
+        }
+
+        function postJSON(obj) {
+            return fetch(GAS_URL, {
+                method: 'POST',
+                body: JSON.stringify(obj)
+            }).then(async (r) => {
+                const t = await r.text();
+                try { return JSON.parse(t); }
+                catch { return { ok: false, error: 'Bad JSON: ' + t.slice(0, 200) }; }
+            });
+        }
+
+        function fileToDataURL(file) {
+            return new Promise(function (resolve, reject) {
+                var reader = new FileReader();
+                reader.onload = function () { resolve(reader.result); };
+                reader.onerror = function () { reject(reader.error); };
+                reader.readAsDataURL(file);
+            });
+        }
+
+        document.getElementById('f').addEventListener('submit', async function (e) {
+            e.preventDefault();
+            document.getElementById('log').textContent = '';
+
+            var t1 = document.getElementById('t1').value || '';
+            var t2 = document.getElementById('t2').value || '';
+            var t3 = document.getElementById('t3').value || '';
+            var imgFile = document.getElementById('img').files[0] || null;
+            var vidFile = document.getElementById('vid').files[0] || null;
+
+            try {
+                var res1 = await postJSON({ type: 'doc', text: t1, token: TOKEN });
+                if (!res1 || !res1.ok) throw new Error(res1 && res1.error || 'テキスト送信失敗');
+
+                var res2 = await postJSON({
+                    type: 'sheet',
+                    sheetName: 'Responses',
+                    rows: [[t2, t3]],
+                    token: TOKEN
+                });
+                if (!res2 || !res2.ok) throw new Error(res2 && res2.error || 'テキスト送信失敗');
+
+                if (imgFile) {
+                    var imgDataUrl = await fileToDataURL(imgFile);
+                    var res3 = await postJSON({
+                        type: 'upload',
+                        kind: 'image',
+                        filename: imgFile.name,
+                        mimeType: imgFile.type || 'application/octet-stream',
+                        dataUrl: imgDataUrl,
+                        token: TOKEN
+                    });
+                    if (!res3 || !res3.ok) throw new Error(res3 && res3.error || '�摜�A�b�v���[�h���s');
+                    log('画像を送信しました');
+                } else {
+                    log('画像なし（スキップ）');
+                }
+
+                if (vidFile) {
+                    var vidDataUrl = await fileToDataURL(vidFile);
+                    var res4 = await postJSON({
+                        type: 'upload',
+                        kind: 'video',
+                        filename: vidFile.name,
+                        mimeType: vidFile.type || 'application/octet-stream',
+                        dataUrl: vidDataUrl,
+                        token: TOKEN
+                    });
+                    if (!res4 || !res4.ok) throw new Error(res4 && res4.error || '����A�b�v���[�h���s');
+                    log('動画を送信しました');
+                } else {
+                    log('動画なし（スキップ）');
+                }
+                log('すべて完了しました。', true);
+            } catch (err) {
+                log('エラー: ' + (err && err.message ? err.message : String(err)), false);
+            }
+        });
+    </script>
+</body>
+</html>
