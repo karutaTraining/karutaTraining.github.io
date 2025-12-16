@@ -14,12 +14,17 @@ const s = (() => {
     catch { return {}; }
 })();
 
+const CARDS = window.KIMARIJI_ITEMS;
+const ALL_IDS_FN = window.KIMARIJI_ALL_IDS || (() => CARDS.map(x => x.id));
+const ALL_IDS = ALL_IDS_FN();
+
 // ====== 状態 ======
 let remaining = [];               // 残り札（Card配列）
 let id2s = new Map();             // id -> s
 let history = new Map();          // id -> { changedAtRead: boolean, correct: boolean }
 let reads = [];                   // シャッフル済みの 1..100
 let idx = 0;                      // 現在の出題インデックス
+let kPoolIds = ALL_IDS.slice();   // 決まり字計算用の残り候補（常に1..100起点）//差分From
 let awaitingNext = false; // 「答える」後に手動で次へ進む待機中かどうか
 let nextTimer = null;     // 自動遷移タイマーID
 let advanced = false;     // この設問で既に進んだかのガード
@@ -28,10 +33,6 @@ let syllableChanging = false;
 let hideProgress = false;
 let notInputButSelect = false;
 let listMode = "syllable";
-
-const CARDS = window.KIMARIJI_ITEMS;
-const ALL_IDS_FN = window.KIMARIJI_ALL_IDS || (() => CARDS.map(x => x.id));
-const ALL_IDS = ALL_IDS_FN();
 
 // ====== DOM ======
 const qidEl = document.getElementById("qid");
@@ -144,6 +145,13 @@ const prefixChars = (s, k) => {
     return cs.slice(0, k).join("");
 };
 
+//差分From
+function resetKPool() { kPoolIds = ALL_IDS.slice(); }
+function consumeFromKPool(id) {
+    const i = kPoolIds.indexOf(id);
+    if (i >= 0) kPoolIds.splice(i, 1);
+}
+//差分To
 
 // ---- 期待される最短接頭辞（かな）を算出 ----
 function computeExpectedPrefixFromIds(currentId, candidateIds) {
@@ -276,6 +284,7 @@ const advanceToNext = () => {
     if (nextTimer) { clearTimeout(nextTimer); nextTimer = null; }
     if (idx >= reads.length) return;
 
+    consumeFromKPool(currentId());//差分From
     removeById(currentId());
     idx++;
     inputEl.disabled = false;     // 次の問題で入力可能に戻す
@@ -306,6 +315,8 @@ const shuffle = (arr) => {
     return arr;
 };
 
+//差分From
+/*
 const expectedPrefix = (s) => {
     let maxL = 0;
     for (const t of remaining) {
@@ -316,6 +327,8 @@ const expectedPrefix = (s) => {
     const need = Math.min(toChars(s).length, maxL + 1);
     return prefixChars(s, need);
 };
+*/
+//差分To
 
 const removeById = (id) => {
     const k = remaining.findIndex(c => c.id === id);
@@ -354,7 +367,8 @@ const renderList = () => {
 
         if (remIds.has(c.id)) {
             // 未読：今この瞬間に変化しているか
-            const changedNow = (expectedPrefix(c.s) !== c.s);
+            //const changedNow = (expectedPrefix(c.s) !== c.s);
+            const changedNow = (computeExpectedPrefixFromIds(c.id, kPoolIds) !== c.s);//差分From
             cls = changedNow ? "unread-changed" : "unread-stable";
             label = changedNow ? "未読・変化中" : "未読・初期";
         } else {
@@ -440,13 +454,15 @@ const submitAnswer = () => {
     }
 
     // いま残っている候補（id配列）
-    const remainingIds = remaining.map(c => c.id);
+    //const remainingIds = remaining.map(c => c.id);
+    const candidateIds = kPoolIds;//差分From
 
     // 新ロジック（ローマ字対応）で判定
     const judge = judgeFudanagashiAnswer(
         inputEl.value.trim(),
         currentId(),
-        remainingIds
+        //remainingIds
+        candidateIds//差分From
         //s // localStorageから読んだ設定（s?.judgeByRomaji を参照）
     );
 
@@ -533,7 +549,8 @@ const skipQuestion = () => {
     }
     // 未回答でのスキップは誤答として記録
     const s = curS();
-    const changedAtRead = (expectedPrefix(s) !== s);
+    //const changedAtRead = (expectedPrefix(s) !== s);
+    const changedAtRead = (computeExpectedPrefixFromIds(id, kPoolIds) !== s);//差分From
     history.set(id, { changedAtRead, correct: false });
     advanceToNext();
 };
@@ -549,6 +566,7 @@ const resetAll = () => {
     remaining = tmpCards.slice();
     id2s = new Map(tmpCards.map(c => [c.id, c.s]));
     reads = shuffle(allowedIds.slice());
+    resetKPool();//差分From
     idx = 0;
 
     if (nextTimer) { clearTimeout(nextTimer); nextTimer = null; }
