@@ -1,4 +1,4 @@
-// --------- fuda-nagashi.js (rewritten, batch-ready) ---------
+// --------- fuda-nagashi-severals.js ---------
 
 // ====== 設定の読み込み ======
 const SETTINGS_KEY = 'karutaSettings.v1';
@@ -32,6 +32,7 @@ const BLANK_SRC = 'blank';
 // ====== データ（kimariji-data.js 由来） ======
 const CARDS = (window.KIMARIJI_ITEMS || []).slice(); // [{id,s},...]
 const ALL_IDS_FN = window.KIMARIJI_ALL_IDS || (() => CARDS.map(c => c.id));
+const ALL_IDS = ALL_IDS_FN ? ALL_IDS_FN() : CARDS.map(c => c.id);//差分From
 const id2s = new Map(CARDS.map(c => [c.id, c.s]));
 
 // ====== 設定反映（デフォルト含む） ======
@@ -52,6 +53,7 @@ let syllableChangingDefault = (settings.changing != null) ? !!settings.changing 
 // ====== 状態 ======
 let poolIds = [];                 // 出題候補の全ID（限定あり）
 let remainingIds = [];            // まだ未出題のID列（シャッフル順）
+let kPoolIds = ALL_IDS.slice();   // 決まり字計算用の候補（常に全ID起点）//差分From
 let consumedCount = 0;            // 既に消化した「カード枚数」
 let currentGroup = [];            // 今回の問で出す ID 群（1..6）
 let groupOrientation = 'upright'; // 'upright'|'upside-down'
@@ -171,6 +173,14 @@ function computeExpectedPrefixFromIds(currentId, candidateIds) {
     }
     return target.slice(0, maxLcp + 1);
 }
+
+//差分From
+function resetKPool() { kPoolIds = ALL_IDS.slice(); }
+function consumeFromKPool(id) {
+    const i = kPoolIds.indexOf(id);
+    if (i >= 0) kPoolIds.splice(i, 1);
+}
+////差分To
 
 // ====== 画面系 ======
 function ensureSlots() {
@@ -326,6 +336,7 @@ function pickNextGroup() {
 
 function removeCurrentGroupFromRemaining() {
     const n = currentGroup.length;
+    currentGroup.forEach(consumeFromKPool);//差分From
     remainingIds = remainingIds.slice(n);
     consumedCount += n;
 }
@@ -370,9 +381,20 @@ function showQuestion() {
     // 終了チェック
     if (consumedCount >= Math.min(BASE_COUNT, poolIds.length)) {
         updateStatusPill('終了');
+
+        //差分From
+        updateProgress();
+        if (qidEl) qidEl.textContent = '-';
+        const resultEl = document.getElementById('result');
+        if (resultEl) { resultEl.textContent = '終了'; resultEl.className = 'pill'; }
+        awaitingNextQuestion = false;
+        if (answerInputEl) answerInputEl.disabled = true;
+        if (skipBtn) { skipBtn.textContent = '終了'; skipBtn.disabled = true; }
+        //差分To
+
         currentGroup = [];
         clearHideTimer();
-        if (singleImgEl) singleImgEl.style.display = '';
+        if (singleImgEl) singleImgEl.style.display = 'none';
         const slotsWrap = ensureSlots();
         if (slotsWrap) slotsWrap.innerHTML = '';
         return;
@@ -386,6 +408,17 @@ function showQuestion() {
     currentGroup = pickNextGroup();
     if (currentGroup.length === 0) {
         updateStatusPill('終了');
+
+        //差分From
+        updateProgress();
+        if (qidEl) qidEl.textContent = '-';
+        const resultEl = document.getElementById('result');
+        if (resultEl) { resultEl.textContent = '終了'; resultEl.className = 'pill'; }
+        awaitingNextQuestion = false;
+        if (answerInputEl) answerInputEl.disabled = true;
+        if (skipBtn) { skipBtn.textContent = '終了'; skipBtn.disabled = true; }
+        //差分To
+
         return;
     }
 
@@ -413,22 +446,28 @@ function showQuestion() {
     groupAnswersKana = [];
     if (answerInputEl) {
         answerInputEl.value = '';
+        answerInputEl.disabled = false;   //差分From
         answerInputEl.focus();
     }
+    if (skipBtn) skipBtn.textContent = 'スキップ';//差分From
     updateProgress();
 }
 
+//差分From
 function judgeSingle(raw) {
     const id = currentGroup[0];
     const kana = normalizeInputToKana(raw);
     if (!kana) {
-        return { ok: false, perId: new Map([[id, false]]), expected: [syllableChangingDefault ? computeExpectedPrefixFromIds(id, remainingIds.concat(currentGroup)) : getReadingById(id)] };
+        //return { ok: false, perId: new Map([[id, false]]), expected: [syllableChangingDefault ? computeExpectedPrefixFromIds(id, remainingIds.concat(currentGroup)) : getReadingById(id)] };
+        return { ok: false, perId: new Map([[id, false]]), expected: [syllableChangingDefault ? computeExpectedPrefixFromIds(id, kPoolIds) : getReadingById(id)] };
     }
     const changing = syllableChangingDefault;
-    const expected = changing ? computeExpectedPrefixFromIds(id, remainingIds.concat(currentGroup)) : getReadingById(id);
+    //const expected = changing ? computeExpectedPrefixFromIds(id, remainingIds.concat(currentGroup)) : getReadingById(id);
+    const expected = changing ? computeExpectedPrefixFromIds(id, kPoolIds) : getReadingById(id);
     const ok = kana === expected;
     return { ok, perId: new Map([[id, ok]]), expected: [expected] };
 }
+//差分To
 
 function judgeMulti(inputsKana) {
     // 2枚以上：syllableChanging は強制 false（全文 s 一致）
@@ -465,18 +504,31 @@ function afterJudgeAndMaybeAdvance(ok) {
 
     // 次問へ
     const goNext = () => {
+        awaitingNextQuestion = false;//差分From
         removeCurrentGroupFromRemaining();
         showQuestion();
     };
     if (AUTO_NEXT_MS > 0) {
-        //setTimeout(goNext, AUTO_NEXT_MS);
+        setTimeout(goNext, AUTO_NEXT_MS);
     } else {
         awaitingNextQuestion = true;
+        //差分From
+        if (answerInputEl) answerInputEl.disabled = true;
+        if (skipBtn) skipBtn.textContent = '次へ';
+        //差分To
     }
 }
 
 // ====== イベントハンドラ ======
 function submitAnswer() {
+    //差分From
+    if (awaitingNextQuestion) {
+        awaitingNextQuestion = false;
+        removeCurrentGroupFromRemaining();
+        showQuestion();
+        return;
+    }
+    //差分To
     if (!currentGroup.length) return;
 
     if (currentGroup.length === 1) {
@@ -505,6 +557,18 @@ function submitAnswer() {
 function skipQuestion() {
     if (!currentGroup.length) return;
 
+    //差分TFrom
+    // 「次へ」状態なら、判定せずに次の問題へ進む
+    if (awaitingNextQuestion) {
+        awaitingNextQuestion = false;
+        removeCurrentGroupFromRemaining();
+        if (answerInputEl) answerInputEl.disabled = false;
+        if (skipBtn) skipBtn.textContent = 'スキップ';
+        showQuestion();
+        return;
+    }
+    //差分TTo
+
     // 未回答は誤答扱い
     const perId = new Map();
     currentGroup.forEach(id => perId.set(id, false));
@@ -515,24 +579,42 @@ function skipQuestion() {
     // 復元表示
     revealGroupImages();
     // 次へ
-    removeCurrentGroupFromRemaining();
+    //差分From
+    //removeCurrentGroupFromRemaining();
     if (AUTO_NEXT_MS > 0) {
+        //setTimeout(showQuestion, AUTO_NEXT_MS);
+        removeCurrentGroupFromRemaining();
         setTimeout(showQuestion, AUTO_NEXT_MS);
+    //差分To
     } else {
         awaitingNextQuestion = true;
+        //差分From
+        if (answerInputEl) answerInputEl.disabled = true;
+        if (skipBtn) skipBtn.textContent = '次へ';
+        //差分To
     }
 }
 
 function resetAll() {
     // 設定再反映（最新値に同期）
-    AUTO_NEXT_MS = +settings.waitMs || 0;
+    //AUTO_NEXT_MS = +settings.waitMs || 0;
+    AUTO_NEXT_MS = settings.autoAdvance ? (+settings.waitMs || 0) : 0;//差分From
     CARDS_DIRECTION = settings.direction || 'random';
     BASE_COUNT = +settings.count || CARDS.length;
     allOrPart = !!settings.allOrPart;
     selectedIdsSet = new Set(Array.isArray(settings.selectedIds) ? settings.selectedIds.map(Number) : []);
-    isRomanized = !!settings.isRomanized;
-    dispSeconds = (settings.dispSeconds != null) ? +settings.dispSeconds : dispSeconds;
-    groupSize = clamp(+settings.groupSize || groupSize, 1, 6);
+    
+    //isRomanized = !!settings.isRomanized;
+    //dispSeconds = (settings.dispSeconds != null) ? +settings.dispSeconds : dispSeconds;
+    //groupSize = clamp(+settings.groupSize || groupSize, 1, 6);
+
+    //?確認 settings.jsとの整合性が正しいか?
+    //差分From
+    isRomanized = !!settings.judgeByRomaji;                  // 設定があれば採用（なければ false）
+    dispSeconds = (settings.appearanceMs != null) ? +settings.appearanceMs : 5000; // ms扱い
+    groupSize = Math.max(2, +settings.countCardsSeveral || 6);
+    //差分To
+
     syllableChangingDefault = (settings.changing != null) ? !!settings.changing : syllableChangingDefault;
 
     // プール構築（限定対応）
@@ -544,6 +626,7 @@ function resetAll() {
     // 数量制限・シャッフル
     const total = Math.min(BASE_COUNT, poolIds.length);
     remainingIds = sampleIds(poolIds, total);
+    resetKPool();//差分From
 
     // 状態初期化
     consumedCount = 0;
@@ -554,7 +637,23 @@ function resetAll() {
     historyById.clear();
 
     // UI
-    if (answerInputEl) { answerInputEl.value = ''; }
+    //差分From
+    //if (answerInputEl) { answerInputEl.value = ''; }
+    if (answerInputEl) {
+        answerInputEl.value = '';
+        answerInputEl.disabled = false;
+    }
+    //差分From
+    //if (skipBtn) skipBtn.textContent = 'スキップ';
+    if (skipBtn) {
+        skipBtn.textContent = 'スキップ';
+        skipBtn.disabled = false;     // ★ 終了で disabled=true にした分を戻す
+    }
+    if (resetBtn) {
+        resetBtn.disabled = false;    // ★ 念のため（どこかで無効化している場合に復帰）
+    }
+    //差分To
+    //差分To
     if (qidEl) qidEl.textContent = '-';
     const resultEl = document.getElementById('result');
     if (resultEl) { resultEl.textContent = '未開始'; resultEl.className = 'pill'; }
