@@ -320,6 +320,7 @@ const playingState = {
     active: false,
     intervalMs: CHAR_INTERVAL_MS_PLAY,
     pool: [],             // 出題母集団（個別ID配列）
+    kPool: ALL_IDS.slice(), // 決まり字計算用の残り候補（常に全ID起点）//差分From
     currentId: null,      // 出題中の個別ID
     currentReading: '',   // かな
     kIndex: null,         // 識別確定文字のインデックス(1-based)
@@ -509,6 +510,7 @@ function startPlayingGame() {
     const sel = decideAllowedIds();                   // 設定で選択された個別IDの実集合
     const pool = buildPlayingGamePool(sel, !!emptyExclude);
     playingState.pool = pool.slice();
+    playingState.kPool = ALL_IDS.slice();//差分From
     playingState.active = true;
 
     // 盤面クリックイベント（1回だけ束ねる）
@@ -541,6 +543,7 @@ function endPlayingGame() {
 
     // 状態クリア
     playingState.pool = [];
+    playingState.kPool = ALL_IDS.slice();//差分From
     playingState.currentId = null;
     playingState.currentReading = '';
     playingState.kIndex = null;
@@ -585,8 +588,14 @@ function nextPlayingGame() {
     playingState.times = [];
 
     // k（識別確定の位置）を算出
-    const k = _computeKIndexForId(id, playingState.pool.concat([id]));
+    //const k = _computeKIndexForId(id, playingState.pool.concat([id]));
+    const k = _computeKIndexForId(id, playingState.kPool);//差分From
     playingState.kIndex = k;
+
+    //差分From
+    const pos = playingState.kPool.indexOf(id);
+    if (pos >= 0) playingState.kPool.splice(pos, 1);
+    //差分To
 
     // 逐次表示開始（全文字表示“完了後”に nms 後 finalize）
     const { timerId } = beginSequentialReveal(
