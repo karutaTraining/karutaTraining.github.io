@@ -2,11 +2,20 @@
 const kimariji1 = window.KIMARIJI_GROUPS;
 const kimariji2 = window.KIMARIJI_ITEMS;
 const ALL_IDS = (window.KIMARIJI_ALL_IDS ? window.KIMARIJI_ALL_IDS() : window.KIMARIJI_ITEMS.map(x => x.id));
-const KEY = 'karutaSettings.v1';
-const BOARD_KEY = 'karutaBoard.v1';
+const SETTINGS_KEY = window.KARUTA_CONST?.SETTINGS_KEY || 'karutaSettings.v1';
+const BOARD_KEY = window.KARUTA_CONST?.BOARD_KEY || 'karutaBoard.v1';
+const ROWS = window.KARUTA_CONST?.ROWS ?? 6;
+const COLS = window.KARUTA_CONST?.COLS ?? 11;
+const TOTAL = window.KARUTA_CONST?.TOTAL ?? ROWS * COLS;
+const halfRow = Math.floor(ROWS / 2);
+const middle = halfRow * COLS;
+const MAX_IMAGES = ROWS * COLS;
+const grid = document.getElementById('grid');
+const BASE_SCALE = 0.09;    // iPhone XR * 0.055
+
 const s = (() => {
     try {
-        const s4 = JSON.parse(localStorage.getItem(KEY)) || {};
+        const s4 = JSON.parse(localStorage.getItem(SETTINGS_KEY)) || {};
         return s4.playingKaruta || {};
     }
     catch { return {}; }
@@ -14,11 +23,6 @@ const s = (() => {
 let saved = null;
 
 const _SEC = 1000;
-const halfRow = 3, ROWS = 6, COLS = 11;
-const middle = halfRow * COLS, TOTAL = ROWS * COLS;
-const MAX_IMAGES = ROWS * COLS;
-const grid = document.getElementById('grid');
-const BASE_SCALE = 0.09;    // iPhone XR * 0.055
 
 //回答後にimgのイベントリスナーを無効化する/しない
 let questionMode = 'mode';
@@ -692,7 +696,7 @@ function _finalizeJudgeAndAdvance() {
 
 
 window.addEventListener('storage', (ev) => {
-    if (ev.key !== KEY) return;
+    if (ev.key !== SETTINGS_KEY) return;
     cardsList = saved.boardLayout.slice();
     revealedIds.clear();
     isVisible = true;
@@ -730,6 +734,4 @@ window.addEventListener('storage', (ev) => {
 
     (() => { const m = `[DEBUG] init: CHAR_INTERVAL_MS_PLAY=${CHAR_INTERVAL_MS_PLAY}, AUTO_NEXT_MS=${AUTO_NEXT_MS} →`; console.log(m, nowTimeSeconds()); })();
 })();
-
-
 

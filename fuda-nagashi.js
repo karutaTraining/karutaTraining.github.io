@@ -5,7 +5,7 @@ let CARDS_COUNT = 100;
 let CARDS_DIRECTION = 'normal';
 const rotateEl = document.getElementById("rotate");
 
-const KEY = 'karutaSettings.v1';
+const KEY = window.KARUTA_CONST?.SETTINGS_KEY || 'karutaSettings.v1';
 const s = (() => {
     try {
         const s1 = JSON.parse(localStorage.getItem(KEY)) || {};

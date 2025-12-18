@@ -1,7 +1,7 @@
 // --------- fuda-nagashi.js (rewritten, batch-ready) ---------
 
 // ====== 設定の読み込み ======
-const SETTINGS_KEY = 'karutaSettings.v1';
+const SETTINGS_KEY = window.KARUTA_CONST?.SETTINGS_KEY || 'karutaSettings.v1';
 const settings = (() => {
     try {
         const s2 = JSON.parse(localStorage.getItem(SETTINGS_KEY)) || {};

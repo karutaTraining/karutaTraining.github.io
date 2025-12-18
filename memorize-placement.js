@@ -10,8 +10,8 @@
     const ALL_IDS = ITEMS.map(x => x.id);
 
     // localStorage キー
-    const KEY_SETTINGS = 'karutaSettings.v1';
-    const KEY_BOARD = 'karutaBoard.v1';
+    const KEY_SETTINGS = window.KARUTA_CONST?.SETTINGS_KEY || 'karutaSettings.v1';
+    const KEY_BOARD = window.KARUTA_CONST?.BOARD_KEY || 'karutaBoard.v1';
 
     // 設定の読込（無ければ既定）
     const settings = (() => {
@@ -24,11 +24,11 @@
 
     // noneCards（不変）：按分専用
     const noneCards = (() => {
-        if (Array.isArray(settings.noneCards) && settings.noneCards.length === 66) {
+        if (Array.isArray(settings.noneCards) && settings.noneCards.length === TOTAL) {
             return settings.noneCards.slice();
         }
         // デフォルト：全マス有効
-        return new Array(66).fill(false);
+        return new Array(TOTAL).fill(false);
     })();
 
     /* ----------------------------
@@ -51,7 +51,10 @@
     /* ----------------------------
      * [REWRITE] 盤面・状態
      * ---------------------------- */
-    const ROWS = 6, COLS = 11, TOTAL = 66, MID = 33;
+    const ROWS = window.KARUTA_CONST?.ROWS ?? 6;
+    const COLS = window.KARUTA_CONST?.COLS ?? 11;
+    const TOTAL = window.KARUTA_CONST?.TOTAL ?? ROWS * COLS;
+    const MID = Math.floor(TOTAL / 2);
     const SCALE_BASE = 0.09;
 
     // 盤面の唯一のソース：0 = 非存在（描画しない）

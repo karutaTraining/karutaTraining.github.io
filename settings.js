@@ -1,6 +1,8 @@
 // --------- settings.js (fixed) ---------
-const SETTINGS_KEY = 'karutaSettings.v1';
-const ROWS = 6, COLS = 11, TOTAL = ROWS * COLS;
+const SETTINGS_KEY = window.KARUTA_CONST?.SETTINGS_KEY || 'karutaSettings.v1';
+const ROWS = window.KARUTA_CONST?.ROWS ?? 6;
+const COLS = window.KARUTA_CONST?.COLS ?? 11;
+const TOTAL = window.KARUTA_CONST?.TOTAL ?? ROWS * COLS;
 
 // === データ from kimariji-data.js ===
 const kimarijiGroups = window.KIMARIJI_GROUPS || [];
